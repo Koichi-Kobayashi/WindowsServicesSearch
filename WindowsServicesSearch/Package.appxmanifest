@@ -9,14 +9,14 @@
   IgnorableNamespaces="uap uap3 rescap">
 
   <Identity
-    Name="FastExplorerStudio.WindowsServicesSearch"
+    Name="FastExplorerStudio.ServicesSearchforCommandPalette"
     Publisher="CN=9006F72B-0B3B-47AD-BF23-A0D351017457"
     Version="1.0.0.0" />
   <!-- When you're ready to publish your extension, you'll need to change the
        Publisher= to match your own identity -->
 
   <Properties>
-    <DisplayName>Windows Services Search</DisplayName>
+    <DisplayName>Services Search for Command Palette</DisplayName>
     <PublisherDisplayName>Fast Explorer Studio</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>

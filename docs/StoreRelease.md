@@ -14,8 +14,9 @@
 
 | 項目 | 設定値 |
 | --- | --- |
-| `Package/Identity/@Name` | `FastExplorerStudio.WindowsServicesSearch` |
+| `Package/Identity/@Name` | `FastExplorerStudio.ServicesSearchforCommandPalette` |
 | `Package/Identity/@Publisher` | `CN=9006F72B-0B3B-47AD-BF23-A0D351017457` |
+| `Package/Properties/DisplayName` | `Services Search for Command Palette` |
 | `Package/Properties/PublisherDisplayName` | `Fast Explorer Studio` |
 
 製品の予約を変更した場合は、Partner Center の製品ページで **製品管理 > 製品 ID** を開き、次の対応で `WindowsServicesSearch/Package.appxmanifest` を更新します。
@@ -24,6 +25,7 @@
 | --- | --- |
 | `Package/Identity/@Name` | パッケージ/ID/名前 |
 | `Package/Identity/@Publisher` | パッケージ/ID/発行元 |
+| `Package/Properties/DisplayName` | 予約済みのアプリ名 |
 | `Package/Properties/PublisherDisplayName` | パッケージ/プロパティ/発行元表示名 |
 
 値は空白、句読点、大文字と小文字を含めて完全に一致させてください。Visual Studio の **発行 > アプリケーションをストアに関連付ける** を使用して設定しても構いません。関連付け後はマニフェストの差分を確認します。

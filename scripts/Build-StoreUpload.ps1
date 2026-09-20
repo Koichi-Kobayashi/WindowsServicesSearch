@@ -20,6 +20,16 @@ if ($null -eq $versionNode -or [string]::IsNullOrWhiteSpace($versionNode.InnerTe
 
 $version = $versionNode.InnerText.Trim()
 
+foreach ($targetPlatform in @('x64', 'ARM64')) {
+    dotnet clean $projectPath `
+        --configuration Release `
+        -p:Platform=$targetPlatform
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Release clean failed for $targetPlatform."
+    }
+}
+
 dotnet build $projectPath `
     --configuration Release `
     -p:Platform=x64 `

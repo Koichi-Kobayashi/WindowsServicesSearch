@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Extension.DisplayName" xml:space="preserve">
+    <value>Windows Services Search</value>
+  </data>
+  <data name="Command.SearchServices.Title" xml:space="preserve">
+    <value>Windows Services Finder</value>
+  </data>
+  <data name="Command.SearchServices.Subtitle" xml:space="preserve">
+    <value>Search Windows services by name or description, then open their properties.</value>
+  </data>
+  <data name="Page.Search.Name" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Page.Search.Placeholder" xml:space="preserve">
+    <value>Search by display name, service name, or description</value>
+  </data>
+  <data name="Command.OpenServiceProperties" xml:space="preserve">
+    <value>Open service properties</value>
+  </data>
+  <data name="Details.ServiceName" xml:space="preserve">
+    <value>Service name</value>
+  </data>
+  <data name="Details.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Details.StartupType" xml:space="preserve">
+    <value>Startup type</value>
+  </data>
+  <data name="Error.ServicesCouldNotOpen" xml:space="preserve">
+    <value>Windows Services could not be opened.</value>
+  </data>
+  <data name="Error.ServicePropertiesCouldNotOpen" xml:space="preserve">
+    <value>The service properties could not be opened.</value>
+  </data>
+  <data name="Status.Stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="Status.StartPending" xml:space="preserve">
+    <value>Start Pending</value>
+  </data>
+  <data name="Status.StopPending" xml:space="preserve">
+    <value>Stop Pending</value>
+  </data>
+  <data name="Status.Running" xml:space="preserve">
+    <value>Running</value>
+  </data>
+  <data name="Status.ContinuePending" xml:space="preserve">
+    <value>Continue Pending</value>
+  </data>
+  <data name="Status.PausePending" xml:space="preserve">
+    <value>Pause Pending</value>
+  </data>
+  <data name="Status.Paused" xml:space="preserve">
+    <value>Paused</value>
+  </data>
+  <data name="Status.Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="StartType.Boot" xml:space="preserve">
+    <value>Boot</value>
+  </data>
+  <data name="StartType.System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="StartType.Automatic" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="StartType.Manual" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="StartType.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="StartType.Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+</root>
