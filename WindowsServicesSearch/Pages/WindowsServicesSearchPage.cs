@@ -4,22 +4,48 @@
 
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using System.Linq;
+using WindowsServicesSearch.Commands;
+using WindowsServicesSearch.Models;
+using WindowsServicesSearch.Resources;
 
 namespace WindowsServicesSearch;
 
-internal sealed partial class WindowsServicesSearchPage : ListPage
+internal sealed partial class WindowsServicesSearchPage : DynamicListPage
 {
+    private readonly ServiceCatalog _catalog = new();
+    private string _query = string.Empty;
+
     public WindowsServicesSearchPage()
     {
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
-        Title = "Windows Services Search";
-        Name = "Open";
+        Title = Strings.Get("Extension.DisplayName");
+        Name = Strings.Get("Page.Search.Name");
+        PlaceholderText = Strings.Get("Page.Search.Placeholder");
+    }
+
+    public override void UpdateSearchText(string oldSearch, string newSearch)
+    {
+        _query = newSearch;
+        RaiseItemsChanged();
     }
 
     public override IListItem[] GetItems()
     {
-        return [
-            new ListItem(new NoOpCommand()) { Title = "TODO: Implement your extension here" }
-        ];
+        return _catalog.Search(_query).Select(CreateListItem).ToArray();
+    }
+
+    private static IListItem CreateListItem(ServiceItem service)
+    {
+        return new ListItem(new OpenServiceCommand(service))
+        {
+            Title = service.DisplayName,
+            Subtitle = service.Description,
+            Details = new Details
+            {
+                Title = service.DisplayName,
+                Body = $"**{Strings.Get("Details.ServiceName")}:** {service.ServiceName}\n\n**{Strings.Get("Details.Status")}:** {service.Status}\n\n**{Strings.Get("Details.StartupType")}:** {service.StartType}\n\n{service.Description}",
+            },
+        };
     }
 }

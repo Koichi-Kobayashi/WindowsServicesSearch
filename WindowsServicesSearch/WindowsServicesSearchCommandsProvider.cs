@@ -4,6 +4,7 @@
 
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using WindowsServicesSearch.Resources;
 
 namespace WindowsServicesSearch;
 
@@ -13,7 +14,7 @@ public partial class WindowsServicesSearchCommandsProvider : CommandProvider
 
     public WindowsServicesSearchCommandsProvider()
     {
-        DisplayName = "Windows Services Search";
+        DisplayName = Strings.Get("Extension.DisplayName");
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
         _commands = [
             new CommandItem(new WindowsServicesSearchPage()) { Title = DisplayName },

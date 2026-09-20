@@ -8,6 +8,7 @@ using Shmuelie.WinRTServer.CsWinRT;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using WindowsServicesSearch.Commands;
 
 namespace WindowsServicesSearch;
 
@@ -16,6 +17,12 @@ public class Program
     [MTAThread]
     public static void Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--elevated-service-helper")
+        {
+            ElevatedServiceHelper.Run(args[1]);
+            return;
+        }
+
         if (args.Length > 0 && args[0] == "-RegisterProcessAsComServer")
         {
             global::Shmuelie.WinRTServer.ComServer server = new();
