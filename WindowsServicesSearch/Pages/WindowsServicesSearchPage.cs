@@ -39,6 +39,7 @@ internal sealed partial class WindowsServicesSearchPage : DynamicListPage
     {
         return new ListItem(new OpenServiceCommand(service))
         {
+            Icon = IconHelpers.FromRelativePath("Assets\\ServiceIcon-64.png"),
             Title = service.DisplayName,
             Subtitle = service.Description,
             Details = new Details
