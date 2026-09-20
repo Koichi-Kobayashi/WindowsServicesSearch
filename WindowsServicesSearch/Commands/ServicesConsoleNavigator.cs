@@ -24,6 +24,9 @@ internal static class ServicesConsoleNavigator
     private const int SelFlagTakeSelection = 0x2;
     private const uint LvmFirst = 0x1000;
     private const uint LvmEnsureVisible = LvmFirst + 19;
+    private const uint WmKeyDown = 0x0100;
+    private const uint WmKeyUp = 0x0101;
+    private const int VkReturn = 0x0D;
 
     public static void NavigateAndWait(int processId, string displayName)
     {
@@ -128,14 +131,21 @@ internal static class ServicesConsoleNavigator
                 _ = SendMessage(listView, LvmEnsureVisible, new IntPtr(childId - 1), IntPtr.Zero);
                 Thread.Sleep(PollMilliseconds);
                 _ = SetForegroundWindow(rootWindow);
-                accessible.accLocation(out var left, out var top, out var width, out var height, child);
-                if (width <= 0 || height <= 0)
+
+                try
                 {
-                    HelperDiagnostics.Write($"Navigator: selected MSAA item had no visible bounds: {displayName}");
-                    return false;
+                    accessible.accDoDefaultAction(child);
+                    HelperDiagnostics.Write("Navigator: service item opened through the MSAA default action.");
+                    return true;
+                }
+                catch (COMException exception)
+                {
+                    HelperDiagnostics.Write($"Navigator: MSAA default action was unavailable: {exception.Message}");
                 }
 
-                DoubleClickAt(left + 12, top + (height / 2));
+                _ = PostMessage(listView, WmKeyDown, new IntPtr(VkReturn), IntPtr.Zero);
+                _ = PostMessage(listView, WmKeyUp, new IntPtr(VkReturn), new IntPtr(unchecked((int)0xC0000001)));
+                HelperDiagnostics.Write("Navigator: service item opened with the Enter-key fallback.");
                 return true;
             }
         }
@@ -319,6 +329,10 @@ internal static class ServicesConsoleNavigator
 
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
