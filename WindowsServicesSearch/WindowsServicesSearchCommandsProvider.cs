@@ -17,7 +17,11 @@ public partial class WindowsServicesSearchCommandsProvider : CommandProvider
         DisplayName = Strings.Get("Extension.DisplayName");
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
         _commands = [
-            new CommandItem(new WindowsServicesSearchPage()) { Title = DisplayName },
+            new ListItem(new WindowsServicesSearchPage())
+            {
+                Title = Strings.Get("Command.SearchServices.Title"),
+                Subtitle = Strings.Get("Command.SearchServices.Subtitle"),
+            },
         ];
     }
 

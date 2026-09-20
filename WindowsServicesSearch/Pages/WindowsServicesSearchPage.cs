@@ -4,6 +4,7 @@
 
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using System;
 using System.Linq;
 using WindowsServicesSearch.Commands;
 using WindowsServicesSearch.Models;
@@ -13,7 +14,7 @@ namespace WindowsServicesSearch;
 
 internal sealed partial class WindowsServicesSearchPage : DynamicListPage
 {
-    private readonly ServiceCatalog _catalog = new();
+    private readonly Lazy<ServiceCatalog> _catalog = new();
     private string _query = string.Empty;
 
     public WindowsServicesSearchPage()
@@ -32,7 +33,7 @@ internal sealed partial class WindowsServicesSearchPage : DynamicListPage
 
     public override IListItem[] GetItems()
     {
-        return _catalog.Search(_query).Select(CreateListItem).ToArray();
+        return _catalog.Value.Search(_query).Select(CreateListItem).ToArray();
     }
 
     private static IListItem CreateListItem(ServiceItem service)

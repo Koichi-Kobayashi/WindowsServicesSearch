@@ -5,6 +5,8 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="Extension.DisplayName" xml:space="preserve"><value>Windows サービス検索</value></data>
+  <data name="Command.SearchServices.Title" xml:space="preserve"><value>Windows サービス詳細検索</value></data>
+  <data name="Command.SearchServices.Subtitle" xml:space="preserve"><value>サービス名や説明からWindowsサービスを検索し、プロパティを開きます。</value></data>
   <data name="Page.Search.Name" xml:space="preserve"><value>検索</value></data>
   <data name="Page.Search.Placeholder" xml:space="preserve"><value>表示名、サービス名、または説明で検索</value></data>
   <data name="Command.OpenServiceProperties" xml:space="preserve"><value>サービスのプロパティを開く</value></data>
