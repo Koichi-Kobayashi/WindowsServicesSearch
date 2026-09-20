@@ -2,6 +2,7 @@
 
 ## 前提
 
+- 対応 OS は Windows 10 version 2004（ビルド 19041）以降です。
 - Windows 11 と Visual Studio 2026、または対応する .NET SDK / Windows SDK を使用します。
 - NuGet パッケージを復元できる環境が必要です。
 - Microsoft Store に提出する前に、Partner Center で製品名を予約し、パッケージ ID を取得します。
