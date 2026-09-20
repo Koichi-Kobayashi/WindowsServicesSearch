@@ -6,5 +6,7 @@
     <_SkipUpgradeNetAnalyzersNuGetWarning>true</_SkipUpgradeNetAnalyzersNuGetWarning>
     <NuGetAuditMode>direct</NuGetAuditMode>
     <PlatformTarget>$(Platform)</PlatformTarget>
+    <!-- Single source of truth for every MSIX build and Store submission. -->
+    <AppxPackageVersion>1.0.0.0</AppxPackageVersion>
   </PropertyGroup>
 </Project>
