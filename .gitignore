@@ -1,0 +1,83 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+# Test results
+[Tt]est[Rr]esult*/
+TestResults/
+*.trx
+
+# Coverage
+*.coverage
+*.coveragexml
+coverage/
+
+# NuGet
+*.nupkg
+*.snupkg
+
+# Logs
+*.log
+*.binlog
+
+# MSBuild
+*.tlog
+
+# WPF generated files
+*_wpftmp.csproj
+
+# MSIX / App packages
+AppPackages/
+BundleArtifacts/
+*.appx
+*.appxbundle
+*.appxupload
+*.msix
+*.msixbundle
+*.msixupload
+
+# Publish
+publish/
+Publish/
+*.publish.xml
+*.pubxml
+
+# Node.js
+node_modules/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+~$*
+*.tmp
+*.bak
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example

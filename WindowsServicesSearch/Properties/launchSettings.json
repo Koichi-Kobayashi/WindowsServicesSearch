@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "WindowsServicesSearch (Package)": {
+      "commandName": "MsixPackage",
+      "doNotLaunchApp": true
+    },
+    "WindowsServicesSearch (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
