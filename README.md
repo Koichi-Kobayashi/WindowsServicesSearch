@@ -76,4 +76,4 @@ Issues and pull requests are welcome. When changing user-facing text, update bot
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE).

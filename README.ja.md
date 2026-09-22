@@ -76,4 +76,4 @@ Issue と Pull Request を歓迎します。ユーザー向けの文言を変更
 
 ## ライセンス
 
-このプロジェクトは MIT License のもとで公開されています。
+このプロジェクトは [MIT License](LICENSE) のもとで公開されています。
