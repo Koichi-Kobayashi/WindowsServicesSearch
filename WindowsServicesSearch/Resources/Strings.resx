@@ -5,7 +5,7 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="Extension.DisplayName" xml:space="preserve"><value>Windows Services Search</value></data>
-  <data name="Command.SearchServices.Title" xml:space="preserve"><value>Windows Services Finder</value></data>
+  <data name="Command.SearchServices.Title" xml:space="preserve"><value>Windows Services Search</value></data>
   <data name="Command.SearchServices.Subtitle" xml:space="preserve"><value>Search Windows services by name or description, then open their properties.</value></data>
   <data name="Page.Search.Name" xml:space="preserve"><value>Search</value></data>
   <data name="Page.Search.Placeholder" xml:space="preserve"><value>Search by display name, service name, or description</value></data>
