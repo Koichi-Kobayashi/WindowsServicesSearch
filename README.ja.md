@@ -6,6 +6,10 @@ Windows サービスを、表示名、サービス名、説明から [Microsoft 
 
 Command Palette は Microsoft PowerToys に含まれる、キーボード中心のランチャーです。アプリ、コマンド、ファイル、拡張機能が提供するツールなどを1か所から検索できます。既定では <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> で開きます。
 
+## インストール
+
+[Microsoft Store から Services Search for Command Palette を入手](https://apps.microsoft.com/detail/9NSDXBJF48KV)
+
 ## 主な機能
 
 - インストールされている Windows サービスを、表示名、サービス名、説明から検索できます。

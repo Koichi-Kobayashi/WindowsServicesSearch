@@ -6,6 +6,10 @@ Search Windows services from [Microsoft PowerToys Command Palette](https://learn
 
 Command Palette is a keyboard-first launcher included with Microsoft PowerToys. It lets you find apps, commands, files, and extension-provided tools from one place. By default, press <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> to open it.
 
+## Installation
+
+[Get Services Search for Command Palette from Microsoft Store](https://apps.microsoft.com/detail/9NSDXBJF48KV)
+
 ## Features
 
 - Search installed Windows services by display name, service name, and description.
