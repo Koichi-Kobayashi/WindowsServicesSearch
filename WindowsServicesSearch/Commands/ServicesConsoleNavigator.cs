@@ -3,8 +3,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -13,24 +15,28 @@ using Accessibility;
 
 namespace WindowsServicesSearch.Commands;
 
+/// <summary>
+/// Direct UIA navigator. It is called only from an elevated extension process,
+/// so it has the same integrity level as the MMC process it starts.
+/// </summary>
 internal static class ServicesConsoleNavigator
 {
     private const int TimeoutMilliseconds = 15000;
     private const int PollMilliseconds = 100;
-    private const int DoubleClickIntervalMilliseconds = 75;
     private const int MaximumScrollAttempts = 200;
     private const uint ObjidClient = 0xFFFFFFFC;
     private const int SelFlagTakeFocus = 0x1;
     private const int SelFlagTakeSelection = 0x2;
     private const uint LvmFirst = 0x1000;
+    private const uint LvmGetItemCount = LvmFirst + 4;
     private const uint LvmEnsureVisible = LvmFirst + 19;
-    private const uint WmKeyDown = 0x0100;
-    private const uint WmKeyUp = 0x0101;
-    private const int VkReturn = 0x0D;
+    private const byte VkReturn = 0x0D;
+    private const uint KeyeventfKeyup = 0x0002;
 
-    public static void NavigateAndWait(int processId, string displayName)
+    public static void NavigateAndWait(string displayName)
     {
-        var worker = new Thread(() => NavigateOnStaThread(processId, displayName))
+        var process = StartConsole();
+        var worker = new Thread(() => NavigateOnStaThread(process, displayName))
         {
             IsBackground = true,
             Name = "Navigate Windows Services",
@@ -40,113 +46,167 @@ internal static class ServicesConsoleNavigator
         worker.Join();
     }
 
-    private static void NavigateOnStaThread(int processId, string displayName)
+    private static Process StartConsole()
     {
-        try
+        var process = Process.Start(new ProcessStartInfo
         {
-            using var process = Process.GetProcessById(processId);
-            var window = WaitForMainWindow(process);
-            if (window is null)
-            {
-                HelperDiagnostics.Write("Navigator: MMC main window was not found before timeout.");
-                return;
-            }
+            FileName = Path.Combine(Environment.SystemDirectory, "mmc.exe"),
+            Arguments = $"\"{Path.Combine(Environment.SystemDirectory, "services.msc")}\"",
+            UseShellExecute = true,
+        });
 
-            if (TryOpenWithMsaa(process.MainWindowHandle, displayName))
-            {
-                HelperDiagnostics.Write("Navigator: service opened through MSAA.");
-                return;
-            }
+        return process ?? throw new InvalidOperationException("Services could not be started.");
+    }
 
-            var item = WaitForServiceItem(window, displayName);
-            if (item is null)
-            {
-                HelperDiagnostics.Write($"Navigator: service item was not found: {displayName}");
-                return;
-            }
-
-            if (item.TryGetCurrentPattern(ScrollItemPattern.Pattern, out var scrollItemPattern))
-            {
-                ((ScrollItemPattern)scrollItemPattern).ScrollIntoView();
-            }
-
-            if (item.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var selectionPattern))
-            {
-                ((SelectionItemPattern)selectionPattern).Select();
-            }
-
-            if (item.TryGetCurrentPattern(InvokePattern.Pattern, out var invokePattern))
-            {
-                ((InvokePattern)invokePattern).Invoke();
-                HelperDiagnostics.Write("Navigator: service item invoked with InvokePattern.");
-                return;
-            }
-
-            item.SetFocus();
-            var point = item.GetClickablePoint();
-            DoubleClickAt((int)point.X, (int)point.Y);
-            HelperDiagnostics.Write("Navigator: service name cell opened with a double-click fallback.");
-        }
-        catch (ElementNotAvailableException exception)
+    private static void NavigateOnStaThread(Process process, string displayName)
+    {
+        using (process)
         {
-            HelperDiagnostics.Write($"Navigator: UIA element disappeared: {exception.Message}");
-        }
-        catch (InvalidOperationException exception)
-        {
-            HelperDiagnostics.Write($"Navigator: operation failed: {exception.Message}");
+            try
+            {
+                var stopwatch = Stopwatch.StartNew();
+                var windowHandle = WaitForMainWindowHandle(process);
+                if (windowHandle == IntPtr.Zero)
+                {
+                    HelperDiagnostics.Write("Navigator: MMC main window was not found before timeout.");
+                    return;
+                }
+
+                var listView = WaitForServiceListView(process.Id);
+                if (listView == IntPtr.Zero)
+                {
+                    HelperDiagnostics.Write("Navigator: Services list view was not found before timeout.");
+                    return;
+                }
+
+                HelperDiagnostics.Write($"Navigator: MMC window ready after {stopwatch.ElapsedMilliseconds} ms.");
+
+                if (TryOpenWithMsaa(windowHandle, listView, displayName))
+                {
+                    HelperDiagnostics.Write($"Navigator: invoked properties after {stopwatch.ElapsedMilliseconds} ms.");
+                    return;
+                }
+
+                var window = WaitForAutomationElement(windowHandle);
+                if (window is null)
+                {
+                    HelperDiagnostics.Write("Navigator: MMC UI Automation element was not available.");
+                    return;
+                }
+
+                var item = WaitForServiceItem(window, displayName);
+                if (item is null)
+                {
+                    HelperDiagnostics.Write($"Navigator: target ListItem was not found: {displayName}");
+                    return;
+                }
+
+                HelperDiagnostics.Write($"Navigator: target ListItem found after {stopwatch.ElapsedMilliseconds} ms.");
+
+                if (item.TryGetCurrentPattern(ScrollItemPattern.Pattern, out var scrollItemPattern))
+                {
+                    ((ScrollItemPattern)scrollItemPattern).ScrollIntoView();
+                }
+
+                if (item.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var selectionPattern))
+                {
+                    ((SelectionItemPattern)selectionPattern).Select();
+                }
+
+                if (item.TryGetCurrentPattern(InvokePattern.Pattern, out var invokePattern))
+                {
+                    ((InvokePattern)invokePattern).Invoke();
+                    HelperDiagnostics.Write($"Navigator: invoked properties after {stopwatch.ElapsedMilliseconds} ms.");
+                    return;
+                }
+
+                HelperDiagnostics.Write("Navigator: target ListItem did not expose InvokePattern.");
+                _ = SetForegroundWindow(windowHandle);
+                item.SetFocus();
+                SendEnter();
+                HelperDiagnostics.Write($"Navigator: opened properties with Enter after {stopwatch.ElapsedMilliseconds} ms.");
+            }
+            // An automation failure leaves the newly opened console available for
+            // the user; it never changes a service or destabilizes the extension.
+            catch (ElementNotAvailableException exception)
+            {
+                HelperDiagnostics.Write($"Navigator: UIA element disappeared: {exception.Message}");
+            }
+            catch (InvalidOperationException exception)
+            {
+                HelperDiagnostics.Write($"Navigator: UIA operation failed: {exception.Message}");
+            }
+            catch (Win32Exception exception)
+            {
+                HelperDiagnostics.Write($"Navigator: Win32 operation failed: {exception.Message}");
+            }
+            catch (COMException exception)
+            {
+                HelperDiagnostics.Write($"Navigator: COM operation failed: {exception.Message}");
+            }
         }
     }
 
-#pragma warning disable IL2050, CsWinRT1033 // MSAA is required for the classic cross-process Services list view.
-    private static bool TryOpenWithMsaa(IntPtr rootWindow, string displayName)
+#pragma warning disable IL2050, CsWinRT1033 // MSAA is required for the classic Services list view.
+    private static bool TryOpenWithMsaa(IntPtr rootWindow, IntPtr listView, string displayName)
     {
-        foreach (var listView in FindListViews(rootWindow))
+        var iid = typeof(IAccessible).GUID;
+        if (AccessibleObjectFromWindow(listView, ObjidClient, ref iid, out var accessibleObject) != 0 ||
+            accessibleObject is not IAccessible accessible)
         {
-            var iid = typeof(IAccessible).GUID;
-            if (AccessibleObjectFromWindow(listView, ObjidClient, ref iid, out var accessibleObject) != 0 ||
-                accessibleObject is not IAccessible accessible)
+            HelperDiagnostics.Write("Navigator: Services list view did not expose MSAA.");
+            return false;
+        }
+
+        var childCount = accessible.accChildCount;
+        for (var childId = 1; childId <= childCount; childId++)
+        {
+            object child = childId;
+            string? name;
+            try
+            {
+                name = accessible.get_accName(child);
+            }
+            catch (COMException)
             {
                 continue;
             }
 
-            for (var childId = 1; childId <= accessible.accChildCount; childId++)
+            if (!IsServiceRowName(name, displayName))
             {
-                object child = childId;
-                string? name;
-                try
-                {
-                    name = accessible.get_accName(child);
-                }
-                catch (COMException)
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                if (!string.Equals(name, displayName, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
+            accessible.accSelect(SelFlagTakeFocus | SelFlagTakeSelection, child);
+            _ = SendMessage(listView, LvmEnsureVisible, new IntPtr(childId - 1), IntPtr.Zero);
+            Thread.Sleep(PollMilliseconds);
+            BringToForeground(rootWindow);
 
-                accessible.accSelect(SelFlagTakeFocus | SelFlagTakeSelection, child);
-                _ = SendMessage(listView, LvmEnsureVisible, new IntPtr(childId - 1), IntPtr.Zero);
-                Thread.Sleep(PollMilliseconds);
-                _ = SetForegroundWindow(rootWindow);
-
-                try
-                {
-                    accessible.accDoDefaultAction(child);
-                    HelperDiagnostics.Write("Navigator: service item opened through the MSAA default action.");
-                    return true;
-                }
-                catch (COMException exception)
-                {
-                    HelperDiagnostics.Write($"Navigator: MSAA default action was unavailable: {exception.Message}");
-                }
-
-                _ = PostMessage(listView, WmKeyDown, new IntPtr(VkReturn), IntPtr.Zero);
-                _ = PostMessage(listView, WmKeyUp, new IntPtr(VkReturn), new IntPtr(unchecked((int)0xC0000001)));
-                HelperDiagnostics.Write("Navigator: service item opened with the Enter-key fallback.");
+            try
+            {
+                accessible.accDoDefaultAction(child);
+                HelperDiagnostics.Write("Navigator: service item opened through the MSAA default action.");
                 return true;
+            }
+            catch (COMException exception)
+            {
+                HelperDiagnostics.Write($"Navigator: MSAA default action was unavailable: {exception.Message}");
+            }
+
+            SendEnter();
+            HelperDiagnostics.Write("Navigator: service item opened with the Enter-key fallback.");
+            return true;
+        }
+
+        if (childCount > 0)
+        {
+            try
+            {
+                HelperDiagnostics.Write($"Navigator: MSAA did not match '{displayName}'. First row was '{accessible.get_accName(1)}' ({childCount} items).");
+            }
+            catch (COMException)
+            {
+                HelperDiagnostics.Write($"Navigator: MSAA did not match '{displayName}' ({childCount} items).");
             }
         }
 
@@ -154,13 +214,86 @@ internal static class ServicesConsoleNavigator
     }
 #pragma warning restore IL2050, CsWinRT1033
 
+    private static IntPtr WaitForMainWindowHandle(Process process)
+    {
+        for (var attempt = 0; attempt < TimeoutMilliseconds / PollMilliseconds; attempt++)
+        {
+            process.Refresh();
+            if (process.MainWindowHandle != IntPtr.Zero)
+            {
+                return process.MainWindowHandle;
+            }
+
+            Thread.Sleep(PollMilliseconds);
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private static IntPtr WaitForServiceListView(int processId)
+    {
+        var bestListView = IntPtr.Zero;
+        var bestCount = 0;
+        for (var attempt = 0; attempt < TimeoutMilliseconds / PollMilliseconds; attempt++)
+        {
+            foreach (var listView in FindListViewsInProcess(processId))
+            {
+                var count = SendMessage(listView, LvmGetItemCount, IntPtr.Zero, IntPtr.Zero).ToInt32();
+                if (count > bestCount)
+                {
+                    bestCount = count;
+                    bestListView = listView;
+                }
+            }
+
+            if (bestCount > 0)
+            {
+                return bestListView;
+            }
+
+            Thread.Sleep(PollMilliseconds);
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private static List<IntPtr> FindListViewsInProcess(int processId)
+    {
+        var listViews = new List<IntPtr>();
+
+        _ = EnumWindows((window, parameter) =>
+        {
+            _ = GetWindowThreadProcessId(window, out uint windowProcessId);
+
+            if (windowProcessId != (uint)processId)
+            {
+                return true;
+            }
+
+            var className = new StringBuilder(256);
+            _ = GetClassName(window, className, className.Capacity);
+
+            if (string.Equals(className.ToString(), "SysListView32", StringComparison.Ordinal))
+            {
+                listViews.Add(window);
+            }
+
+            listViews.AddRange(FindListViews(window));
+            return true;
+        }, IntPtr.Zero);
+
+        return listViews;
+    }
+
     private static List<IntPtr> FindListViews(IntPtr rootWindow)
     {
         var listViews = new List<IntPtr>();
-        _ = EnumChildWindows(rootWindow, (window, _) =>
+
+        _ = EnumChildWindows(rootWindow, (window, parameter) =>
         {
             var className = new StringBuilder(256);
             _ = GetClassName(window, className, className.Capacity);
+
             if (string.Equals(className.ToString(), "SysListView32", StringComparison.Ordinal))
             {
                 listViews.Add(window);
@@ -168,17 +301,24 @@ internal static class ServicesConsoleNavigator
 
             return true;
         }, IntPtr.Zero);
+
         return listViews;
     }
 
-    private static AutomationElement? WaitForMainWindow(Process process)
+    private static AutomationElement? WaitForAutomationElement(IntPtr windowHandle)
     {
         for (var attempt = 0; attempt < TimeoutMilliseconds / PollMilliseconds; attempt++)
         {
-            process.Refresh();
-            if (process.MainWindowHandle != IntPtr.Zero)
+            try
             {
-                return AutomationElement.FromHandle(process.MainWindowHandle);
+                var element = AutomationElement.FromHandle(windowHandle);
+                if (element is not null)
+                {
+                    return element;
+                }
+            }
+            catch (ElementNotAvailableException)
+            {
             }
 
             Thread.Sleep(PollMilliseconds);
@@ -191,16 +331,26 @@ internal static class ServicesConsoleNavigator
     {
         for (var attempt = 0; attempt < TimeoutMilliseconds / PollMilliseconds; attempt++)
         {
-            var item = FindVisibleServiceItem(root, displayName);
-            if (item is not null)
+            try
             {
-                return item;
-            }
+                var item = FindVisibleServiceItem(root, displayName);
+                if (item is not null)
+                {
+                    return item;
+                }
 
-            var list = FindScrollableServiceList(root);
-            if (list is not null)
+                var list = FindScrollableServiceList(root);
+                if (list is not null)
+                {
+                    item = FindByScrolling(root, list, displayName);
+                    if (item is not null)
+                    {
+                        return item;
+                    }
+                }
+            }
+            catch (ElementNotAvailableException)
             {
-                return FindByScrolling(root, list, displayName);
             }
 
             Thread.Sleep(PollMilliseconds);
@@ -266,23 +416,14 @@ internal static class ServicesConsoleNavigator
 
     private static AutomationElement? FindVisibleServiceItem(AutomationElement root, string displayName)
     {
-        var nameCell = root.FindFirst(
-            TreeScope.Descendants,
-            new AndCondition(
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
-                new PropertyCondition(AutomationElement.NameProperty, displayName)));
-        if (nameCell is not null)
-        {
-            return nameCell;
-        }
-
         var itemCondition = new OrCondition(
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.DataItem),
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem));
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem),
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit));
         var items = root.FindAll(TreeScope.Descendants, itemCondition);
         foreach (AutomationElement item in items)
         {
-            if (string.Equals(item.Current.Name, displayName, StringComparison.OrdinalIgnoreCase))
+            if (IsServiceRowName(item.Current.Name, displayName))
             {
                 return item;
             }
@@ -291,37 +432,50 @@ internal static class ServicesConsoleNavigator
         return null;
     }
 
-    private static void DoubleClickAt(int x, int y)
+    private static bool IsServiceRowName(string? actual, string displayName)
     {
-        var hasOriginalPosition = GetCursorPos(out var originalPosition);
-        try
+        if (string.IsNullOrEmpty(actual))
         {
-            _ = SetCursorPos(x, y);
-            mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
-            mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
-            Thread.Sleep(DoubleClickIntervalMilliseconds);
-            mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
-            mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+            return false;
         }
-        finally
+
+        if (string.Equals(actual, displayName, StringComparison.OrdinalIgnoreCase))
         {
-            if (hasOriginalPosition)
-            {
-                _ = SetCursorPos(originalPosition.X, originalPosition.Y);
-            }
+            return true;
+        }
+
+        if (!actual.StartsWith(displayName, StringComparison.OrdinalIgnoreCase) ||
+            actual.Length == displayName.Length)
+        {
+            return false;
+        }
+
+        var next = actual[displayName.Length];
+        return next is ' ' or '\t' or ',' or ';' or '|';
+    }
+
+    private static void BringToForeground(IntPtr window)
+    {
+        var currentThread = GetCurrentThreadId();
+        var windowThread = GetWindowThreadProcessId(window, out _);
+        if (currentThread != windowThread)
+        {
+            _ = AttachThreadInput(currentThread, windowThread, true);
+        }
+
+        _ = SetForegroundWindow(window);
+
+        if (currentThread != windowThread)
+        {
+            _ = AttachThreadInput(currentThread, windowThread, false);
         }
     }
 
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetCursorPos(int x, int y);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetCursorPos(out Point point);
-
-    [DllImport("user32.dll")]
-    private static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extraInfo);
+    private static void SendEnter()
+    {
+        keybd_event(VkReturn, 0, 0, UIntPtr.Zero);
+        keybd_event(VkReturn, 0, KeyeventfKeyup, UIntPtr.Zero);
+    }
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -332,7 +486,7 @@ internal static class ServicesConsoleNavigator
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+    private static extern bool EnumWindows(EnumWindowsCallback callback, IntPtr parameter);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -342,19 +496,25 @@ internal static class ServicesConsoleNavigator
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetClassName(IntPtr window, StringBuilder className, int maximumCount);
 
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AttachThreadInput(uint attachId, uint attachToId, [MarshalAs(UnmanagedType.Bool)] bool attach);
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extraInfo);
+
     [DllImport("oleacc.dll")]
     private static extern int AccessibleObjectFromWindow(
         IntPtr window,
         uint objectId,
         ref Guid interfaceId,
         [MarshalAs(UnmanagedType.Interface)] out object accessibleObject);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Point
-    {
-        public int X;
-        public int Y;
-    }
 
     private delegate bool EnumWindowsCallback(IntPtr window, IntPtr parameter);
 }

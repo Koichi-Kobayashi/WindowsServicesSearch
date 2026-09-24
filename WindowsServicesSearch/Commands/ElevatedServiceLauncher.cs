@@ -10,18 +10,28 @@ using System.Threading.Tasks;
 
 namespace WindowsServicesSearch.Commands;
 
+/// <summary>
+/// Starts the same packaged executable through UAC and sends a trusted service
+/// name over a short-lived, per-request pipe. It never starts MMC itself, so the
+/// elevated helper can open Services at the same integrity level it will automate.
+/// </summary>
 internal static class ElevatedServiceLauncher
 {
     private const int ConnectionTimeoutMilliseconds = 30000;
 
     public static void Start(string serviceName)
     {
-        HelperDiagnostics.Write("Launcher: open-service command invoked.");
-        using var consoleProcess = StartServicesConsole();
         var pipeName = $"WindowsServicesSearch.{Guid.NewGuid():N}";
-        var server = new NamedPipeServerStream(pipeName, PipeDirection.Out, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        HelperDiagnostics.Write("Launcher: creating one-time request pipe.");
+        var server = new NamedPipeServerStream(
+            pipeName,
+            PipeDirection.Out,
+            1,
+            PipeTransmissionMode.Byte,
+            PipeOptions.Asynchronous);
         var cancellation = new CancellationTokenSource(ConnectionTimeoutMilliseconds);
-        _ = SendRequestAsync(server, cancellation, serviceName, consoleProcess.Id);
+
+        _ = SendServiceNameAsync(server, cancellation, serviceName);
 
         try
         {
@@ -31,7 +41,6 @@ internal static class ElevatedServiceLauncher
                 throw new InvalidOperationException("The extension executable path is unavailable.");
             }
 
-            HelperDiagnostics.Write($"Launcher: requesting elevated helper: {executablePath}");
             Process.Start(new ProcessStartInfo
             {
                 FileName = executablePath,
@@ -39,10 +48,11 @@ internal static class ElevatedServiceLauncher
                 UseShellExecute = true,
                 Verb = "runas",
             });
+            HelperDiagnostics.Write("Launcher: elevated helper process requested.");
         }
-        catch (Exception exception)
+        catch
         {
-            HelperDiagnostics.Write($"Launcher: elevated helper failed to start: {exception.Message}");
+            HelperDiagnostics.Write("Launcher: elevated helper process was not started.");
             cancellation.Cancel();
             server.Dispose();
             cancellation.Dispose();
@@ -50,41 +60,22 @@ internal static class ElevatedServiceLauncher
         }
     }
 
-    private static Process StartServicesConsole()
-    {
-        var process = Process.Start(new ProcessStartInfo
-        {
-            FileName = Path.Combine(Environment.SystemDirectory, "mmc.exe"),
-            Arguments = $"\"{Path.Combine(Environment.SystemDirectory, "services.msc")}\"",
-            UseShellExecute = true,
-        });
-
-        if (process is null)
-        {
-            throw new InvalidOperationException("Services could not be started.");
-        }
-
-        HelperDiagnostics.Write($"Launcher: services.msc started with process ID {process.Id}.");
-        return process;
-    }
-
-    private static async Task SendRequestAsync(
+    private static async Task SendServiceNameAsync(
         NamedPipeServerStream server,
         CancellationTokenSource cancellation,
-        string serviceName,
-        int processId)
+        string serviceName)
     {
         try
         {
             await server.WaitForConnectionAsync(cancellation.Token).ConfigureAwait(false);
+            HelperDiagnostics.Write("Launcher: helper connected to request pipe.");
             await using var writer = new StreamWriter(server, leaveOpen: true) { AutoFlush = true };
             await writer.WriteLineAsync(serviceName).ConfigureAwait(false);
-            await writer.WriteLineAsync(processId.ToString(System.Globalization.CultureInfo.InvariantCulture)).ConfigureAwait(false);
-            HelperDiagnostics.Write("Launcher: service name and MMC process ID sent to elevated helper.");
+            HelperDiagnostics.Write("Launcher: service name sent to elevated helper.");
         }
         catch (OperationCanceledException)
         {
-            HelperDiagnostics.Write("Launcher: helper connection timed out.");
+            HelperDiagnostics.Write("Launcher: pipe connection timed out or was cancelled.");
         }
         catch (ObjectDisposedException)
         {
